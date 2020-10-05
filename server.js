@@ -11,7 +11,7 @@ app.get("/", function (req, res) {
 });
 
 app.get("/video", function (req, res) {
-  var fileUrl = "https://alderplay.blob.core.windows.net/alderplay/play3.mp4";
+  var fileUrl = "XXXXX-XXXXXX-xxxxxx";
 
   var range = req.headers.range;
   var positions, start, end, total, chunksize;
