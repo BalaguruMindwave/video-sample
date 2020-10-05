@@ -1,53 +1,60 @@
-const express = require('express')
-const fs = require('fs')
-const path = require('path')
-const app = express()
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const app = express();
+const request = require("request");
 
-app.use(express.static(path.join(__dirname, 'public')))
+app.use(express.static(path.join(__dirname, "public")));
 
-app.get('/', function(req, res) {
-  res.sendFile(path.join(__dirname + '/index.htm'))
-})
+app.get("/", function (req, res) {
+  res.sendFile(path.join(__dirname + "/index.htm"));
+});
 
-app.get('/video', function(req, res) {
-  const path = 'assets/sample.mp4'
-  const stat = fs.statSync(path)
-  const fileSize = stat.size
-  const range = req.headers.range
+app.get("/video", function (req, res) {
+  var fileUrl = "https://alderplay.blob.core.windows.net/alderplay/play3.mp4";
 
-  if (range) {
-    const parts = range.replace(/bytes=/, "").split("-")
-    const start = parseInt(parts[0], 10)
-    const end = parts[1]
-      ? parseInt(parts[1], 10)
-      : fileSize-1
+  var range = req.headers.range;
+  var positions, start, end, total, chunksize;
 
-    if(start >= fileSize) {
-      res.status(416).send('Requested range not satisfiable\n'+start+' >= '+fileSize);
-      return
+  // HEAD request for file metadata
+  request(
+    {
+      url: fileUrl,
+      method: "HEAD",
+    },
+    function (error, response, body) {
+      setResponseHeaders(response.headers);
+      pipeToResponse();
     }
-    
-    const chunksize = (end-start)+1
-    const file = fs.createReadStream(path, {start, end})
-    const head = {
-      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': chunksize,
-      'Content-Type': 'video/mp4',
-    }
+  );
 
-    res.writeHead(206, head)
-    file.pipe(res)
-  } else {
-    const head = {
-      'Content-Length': fileSize,
-      'Content-Type': 'video/mp4',
-    }
-    res.writeHead(200, head)
-    fs.createReadStream(path).pipe(res)
+  function setResponseHeaders(headers) {
+    positions = range.replace(/bytes=/, "").split("-");
+    start = parseInt(positions[0], 10);
+    total = headers["content-length"];
+    end = positions[1] ? parseInt(positions[1], 10) : total - 1;
+    chunksize = end - start + 1;
+
+    res.writeHead(206, {
+      "Content-Range": "bytes " + start + "-" + end + "/" + total,
+      "Accept-Ranges": "bytes",
+      "Content-Length": chunksize,
+      "Content-Type": "video/mp4",
+    });
   }
-})
 
-app.listen(3000, function () {
-  console.log('Listening on port 3000!')
-})
+  function pipeToResponse() {
+    var options = {
+      url: fileUrl,
+      headers: {
+        range: "bytes=" + start + "-" + end,
+        connection: "keep-alive",
+      },
+    };
+
+    request(options).pipe(res);
+  }
+});
+app.listen(4009, function () {
+  console.log("Listening on port 4009!");
+});
